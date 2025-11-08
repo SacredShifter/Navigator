@@ -10,7 +10,7 @@
  *   const colors = getProfileColors('seeker');
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 export interface BrandColor {
   name: string;
