@@ -119,8 +119,31 @@ export class AssessmentEngine {
       score.percentage = totalScore > 0 ? Math.round((Math.max(0, score.score) / totalScore) * 100) : 0;
     });
 
-    const winningProfileName = sortedScores[0].profileName;
-    const profile = this.profiles.find(p => p.name === winningProfileName)!;
+    // Enhanced profile detection for Numb and Seeker
+    let finalProfileName = sortedScores[0].profileName;
+
+    // Get key question responses (Q1: safety, Q2: emotional_clarity, Q5: curiosity)
+    const safetyScore = this.responses.get(this.questions[0]?.id) as number;
+    const emotionalClarity = this.responses.get(this.questions[1]?.id) as number;
+    const curiosityScore = this.responses.get(this.questions[4]?.id) as number;
+
+    // Detect Numb: Low emotional clarity (≤3)
+    if (emotionalClarity !== undefined && emotionalClarity <= 3) {
+      const numbProfile = this.profiles.find(p => p.name === 'Numb');
+      if (numbProfile) {
+        finalProfileName = 'Numb';
+      }
+    }
+    // Detect Seeker: High curiosity (≥5) AND safe enough (≥5)
+    else if (curiosityScore !== undefined && curiosityScore >= 5 &&
+             safetyScore !== undefined && safetyScore >= 5) {
+      const seekerProfile = this.profiles.find(p => p.name === 'Seeker');
+      if (seekerProfile) {
+        finalProfileName = 'Seeker';
+      }
+    }
+
+    const profile = this.profiles.find(p => p.name === finalProfileName)!;
 
     return {
       profile,
