@@ -105,10 +105,24 @@ Deno.serve(async (req: Request) => {
     }
 
     const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+    const environment = Deno.env.get('ENVIRONMENT') || 'development';
     let embedding: number[];
     let method = 'synthetic';
 
-    if (apiKey) {
+    if (!apiKey) {
+      if (environment === 'production') {
+        return new Response(
+          JSON.stringify({
+            error: 'Service unavailable: OPENROUTER_API_KEY not configured',
+            code: 'MISSING_CREDENTIAL'
+          }),
+          { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        console.warn('⚠️ Using synthetic fallback - set OPENROUTER_API_KEY for production');
+        embedding = generateSyntheticEmbedding(text);
+      }
+    } else {
       try {
         embedding = await callOpenRouter(text, apiKey);
         method = 'openrouter';
@@ -116,8 +130,6 @@ Deno.serve(async (req: Request) => {
         console.warn('OpenRouter failed, using synthetic:', error);
         embedding = generateSyntheticEmbedding(text);
       }
-    } else {
-      embedding = generateSyntheticEmbedding(text);
     }
 
     return new Response(

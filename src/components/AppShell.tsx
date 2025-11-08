@@ -35,6 +35,7 @@ import { CrisisAlertBanner } from './CrisisAlertBanner';
 import { AIJourneySummary } from './AIJourneySummary';
 import { SupporterTierModal } from './SupporterTierModal';
 import { AuraStatusBanner } from './AuraStatusBanner';
+import { ROEDashboard } from '../pages/ROEDashboard';
 
 type View =
   | 'navigator'
@@ -42,7 +43,8 @@ type View =
   | 'cohorts'
   | 'analytics'
   | 'referrals'
-  | 'track';
+  | 'track'
+  | 'roe-dashboard';
 
 interface AppShellProps {
   userId?: string;
@@ -91,6 +93,7 @@ export function AppShell({ userId = 'demo-user', isSupporter = false }: AppShell
   const navigationItems = [
     { id: 'navigator' as View, label: 'Start', icon: Compass, requiresNavigator: false },
     { id: 'journey' as View, label: 'My Journey', icon: Home, requiresNavigator: true },
+    { id: 'roe-dashboard' as View, label: 'ROE Dashboard', icon: BarChart3, requiresNavigator: true },
     { id: 'cohorts' as View, label: 'Community', icon: Users, requiresNavigator: true },
     { id: 'analytics' as View, label: 'Insights', icon: BarChart3, requiresNavigator: true, supporter: true },
     { id: 'referrals' as View, label: 'Find Support', icon: Heart, requiresNavigator: true },
@@ -176,6 +179,9 @@ export function AppShell({ userId = 'demo-user', isSupporter = false }: AppShell
           return <CohortChat cohortId={currentCohortId} userId={userId} />;
         }
         return <CohortDiscovery userId={userId} onJoinCohort={handleJoinCohort} />;
+
+      case 'roe-dashboard':
+        return <ROEDashboard userId={userId} />;
 
       case 'analytics':
         if (!isSupporter) {
