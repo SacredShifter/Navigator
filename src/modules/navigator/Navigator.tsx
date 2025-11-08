@@ -23,11 +23,17 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   const [targetTrackId, setTargetTrackId] = useState<string>('');
   const [safetyMode, setSafetyMode] = useState(false);
   const [safetyReason, setSafetyReason] = useState<string>();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     const init = async () => {
-      await navigatorModule.initialize();
-      await navigatorModule.activate();
+      try {
+        await navigatorModule.initialize();
+        await navigatorModule.activate();
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Error initializing Navigator:', error);
+      }
     };
     init();
 
@@ -37,10 +43,19 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   }, [navigatorModule]);
 
   const handleBegin = async () => {
-    const exposedItems = navigatorModule.getExposedItems();
-    const assessment = exposedItems.assessmentAPI.startAssessment();
-    setQuestions(assessment.questions);
-    setState('assessment');
+    try {
+      const exposedItems = navigatorModule.getExposedItems();
+      const assessment = exposedItems.assessmentAPI.startAssessment();
+
+      if (assessment && assessment.questions && assessment.questions.length > 0) {
+        setQuestions(assessment.questions);
+        setState('assessment');
+      } else {
+        console.error('No questions loaded from assessment');
+      }
+    } catch (error) {
+      console.error('Error starting assessment:', error);
+    }
   };
 
   const handleSubmitAssessment = async (responses: Map<string, any>) => {
@@ -111,11 +126,31 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
     setState('intro');
   };
 
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+        <div className="text-center text-white">
+          <div className="text-xl">Initializing Navigator...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (state === 'intro') {
     return <NavigatorIntro onBegin={handleBegin} />;
   }
 
-  if (state === 'assessment' && questions.length > 0) {
+  if (state === 'assessment') {
+    if (questions.length === 0) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+          <div className="text-center text-white">
+            <div className="text-xl mb-4">Loading questions...</div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <AssessmentFlow
         questions={questions}
