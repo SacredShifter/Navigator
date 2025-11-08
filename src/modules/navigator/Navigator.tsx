@@ -24,6 +24,7 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   const [safetyMode, setSafetyMode] = useState(false);
   const [safetyReason, setSafetyReason] = useState<string>();
   const [isInitialized, setIsInitialized] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -33,6 +34,7 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
         setIsInitialized(true);
       } catch (error) {
         console.error('Error initializing Navigator:', error);
+        setInitError(error instanceof Error ? error.message : 'Failed to initialize Navigator');
       }
     };
     init();
@@ -125,6 +127,20 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   const handleBack = () => {
     setState('intro');
   };
+
+  if (initError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+        <div className="text-center text-white max-w-md">
+          <div className="text-2xl font-bold text-red-400 mb-4">Initialization Error</div>
+          <div className="text-lg mb-4">{initError}</div>
+          <div className="text-sm text-blue-300">
+            Please check your database connection and ensure all migrations have been applied.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isInitialized) {
     return (
