@@ -1,0 +1,256 @@
+{
+  "version": "1.0.0",
+  "name": "Sacred Shifter Aesthetics",
+  "description": "Branding guide for the Sacred Shifter healing platform. Colors as resonance, not decoration. Sigils mark thresholds and coherence anchors.",
+
+  "colors": {
+    "resonance": {
+      "name": "Violet",
+      "hex": "#8B5CF6",
+      "rgb": "139, 92, 246",
+      "hsl": "259, 89%, 66%",
+      "function": "Spiritual resonance, connection to higher consciousness",
+      "usage": "Awakening profile, mystical states, consciousness expansion"
+    },
+    "alignment": {
+      "name": "Aqua",
+      "hex": "#06B6D4",
+      "rgb": "6, 182, 212",
+      "hsl": "189, 94%, 43%",
+      "function": "Flow state, alignment with truth, clarity",
+      "usage": "Integration processes, truth-seeking, Seeker profile"
+    },
+    "truth": {
+      "name": "Mint",
+      "hex": "#10B981",
+      "rgb": "16, 185, 129",
+      "hsl": "160, 84%, 39%",
+      "function": "Grounded truth, embodied wisdom, growth",
+      "usage": "Grounding exercises, somatic work, recovery processes"
+    },
+    "silence": {
+      "name": "Deep Indigo",
+      "hex": "#312E81",
+      "rgb": "49, 46, 129",
+      "hsl": "242, 47%, 34%",
+      "function": "Sacred silence, void space, witness consciousness",
+      "usage": "Observer profile, meditation, stillness practices"
+    },
+    "purpose": {
+      "name": "Magenta",
+      "hex": "#D946EF",
+      "rgb": "217, 70, 239",
+      "hsl": "292, 84%, 61%",
+      "function": "Purpose activation, service, expansion",
+      "usage": "Expander profile, service-oriented content, purpose work"
+    },
+    "pulse": {
+      "name": "Neon Cyan",
+      "hex": "#22D3EE",
+      "rgb": "34, 211, 238",
+      "hsl": "188, 86%, 53%",
+      "function": "Life force, vitality, energy pulse",
+      "usage": "Re-sensitization, micro-movement, Numb to Noticing track"
+    },
+    "shadow": {
+      "name": "Charcoal",
+      "hex": "#1F2937",
+      "rgb": "31, 41, 55",
+      "hsl": "215, 28%, 17%",
+      "function": "Shadow work, integration, depth",
+      "usage": "Lost profile, trauma work, deep healing"
+    },
+    "safety": {
+      "name": "Warm Amber",
+      "hex": "#F59E0B",
+      "rgb": "245, 158, 11",
+      "hsl": "38, 92%, 50%",
+      "function": "Safety, warmth, nervous system regulation",
+      "usage": "Safety overlays, grounding, withdrawal support"
+    }
+  },
+
+  "profiles": {
+    "numb": {
+      "primary_color": "pulse",
+      "secondary_color": "truth",
+      "visual_treatment": "minimal_motion",
+      "fps_limit": 15,
+      "contrast": "low",
+      "sigil_density": "sparse",
+      "audio_frequency": "sub_1hz",
+      "description": "For those disconnected from sensation. Gentle re-awakening."
+    },
+    "lost": {
+      "primary_color": "shadow",
+      "secondary_color": "safety",
+      "visual_treatment": "grounded_stable",
+      "fps_limit": 15,
+      "contrast": "high",
+      "sigil_density": "minimal",
+      "audio_frequency": "heart_rate_60_70",
+      "description": "Deep trauma support. Radical safety first."
+    },
+    "seeker": {
+      "primary_color": "alignment",
+      "secondary_color": "resonance",
+      "visual_treatment": "fractal_bloom",
+      "fps_limit": 30,
+      "contrast": "medium",
+      "sigil_density": "moderate",
+      "audio_frequency": "coherence_1hz",
+      "description": "For curious minds. Balance skepticism and soul."
+    },
+    "awakening": {
+      "primary_color": "resonance",
+      "secondary_color": "alignment",
+      "visual_treatment": "breathing_halo",
+      "fps_limit": 20,
+      "contrast": "low",
+      "sigil_density": "moderate",
+      "audio_frequency": "swell_1_to_1.2hz",
+      "description": "Identity dissolution. Grounded translation of expansion."
+    },
+    "integrator": {
+      "primary_color": "truth",
+      "secondary_color": "alignment",
+      "visual_treatment": "balanced_flow",
+      "fps_limit": 30,
+      "contrast": "medium",
+      "sigil_density": "moderate",
+      "audio_frequency": "entrainment_63bpm",
+      "description": "Embodying insights. Grounding the ethereal."
+    },
+    "expander": {
+      "primary_color": "purpose",
+      "secondary_color": "resonance",
+      "visual_treatment": "radiant_expansion",
+      "fps_limit": 30,
+      "contrast": "high",
+      "sigil_density": "rich",
+      "audio_frequency": "uplifting_72bpm",
+      "description": "Service activation. Teaching through embodiment."
+    },
+    "observer": {
+      "primary_color": "silence",
+      "secondary_color": "pulse",
+      "visual_treatment": "still_presence",
+      "fps_limit": 24,
+      "contrast": "low",
+      "sigil_density": "minimal",
+      "audio_frequency": "ambient_stillness",
+      "description": "Witness consciousness. Joy in simple presence."
+    }
+  },
+
+  "typography": {
+    "primary_font": {
+      "family": "Inter",
+      "weights": [400, 500, 700],
+      "usage": "Body text, UI elements, navigation",
+      "line_height": "1.5"
+    },
+    "display_font": {
+      "family": "Inter",
+      "weights": [700, 800],
+      "usage": "Headers, profile names, track titles",
+      "line_height": "1.2"
+    },
+    "script_font": {
+      "family": "system-ui",
+      "weights": [400],
+      "usage": "Guided meditation scripts, somatic instructions",
+      "line_height": "1.6",
+      "letter_spacing": "0.02em"
+    }
+  },
+
+  "spacing": {
+    "system": "8px",
+    "scale": [4, 8, 12, 16, 24, 32, 48, 64, 96, 128],
+    "usage": "All spacing must be multiples of 8px for visual harmony"
+  },
+
+  "motion": {
+    "principles": [
+      "Motion serves nervous system regulation, not decoration",
+      "Reduce motion for trauma states (Lost, Numb)",
+      "Enhance motion for expansion states (Expander, Observer)",
+      "All animations can be disabled via safety controls"
+    ],
+    "easing": {
+      "standard": "cubic-bezier(0.4, 0.0, 0.2, 1)",
+      "decelerate": "cubic-bezier(0.0, 0.0, 0.2, 1)",
+      "accelerate": "cubic-bezier(0.4, 0.0, 1, 1)",
+      "sharp": "cubic-bezier(0.4, 0.0, 0.6, 1)"
+    },
+    "duration": {
+      "instant": "0ms",
+      "fast": "150ms",
+      "normal": "300ms",
+      "slow": "500ms",
+      "deliberate": "1000ms"
+    }
+  },
+
+  "sigils": {
+    "philosophy": "Sigils mark thresholds and coherence anchors, not filler graphics",
+    "placement": [
+      "Stage transitions (coherence marker)",
+      "Track completion (achievement sigil)",
+      "Profile reveal (identity anchor)",
+      "Safety activation (protection symbol)"
+    ],
+    "types": {
+      "threshold": "Marks transition between states",
+      "anchor": "Stabilizes during difficult passages",
+      "completion": "Celebrates integration milestones",
+      "protection": "Activates safety and grounding"
+    }
+  },
+
+  "audio": {
+    "principles": [
+      "Audio is binaural entrainment, not ambient decoration",
+      "Match BPM to target nervous system state",
+      "Sub-1Hz for re-sensitization (Numb)",
+      "60-70 BPM for safety (Lost, withdrawal)",
+      "1-1.2Hz swell for coherence (Seeker, Awakening)"
+    ],
+    "volume_limits": {
+      "numb": -20,
+      "lost": -18,
+      "seeker": -16,
+      "awakening": -18,
+      "integrator": -17,
+      "expander": -15,
+      "observer": -18
+    }
+  },
+
+  "safety_gating": {
+    "numb_lost": {
+      "enforce_dark_ui": true,
+      "max_motion": "minimal",
+      "disable_reverb": true,
+      "ground_now_always_visible": true
+    },
+    "psychedelic": {
+      "fps_cap": 15,
+      "high_contrast_option": true,
+      "breathing_cues": "prominent"
+    },
+    "withdrawal": {
+      "safety_overlay": "pinned",
+      "crisis_resources": "always_accessible",
+      "temperature_regulation_prompts": true
+    }
+  },
+
+  "metaphysical_mapping": {
+    "colors_as_resonance": "Each color is an energetic function, not decoration. Violet for resonance, aqua for alignment, mint for truth, deep indigo for silence, magenta for purpose, neon for pulse.",
+    "sigil_as_anchor": "Sigils mark thresholds and coherence points. They orient consciousness during liminal states.",
+    "audio_as_entrainment": "Audio is not background music. It's binaural entrainment designed to guide nervous system regulation.",
+    "motion_as_medicine": "Movement and visual flow serve regulation, not engagement metrics."
+  }
+}
