@@ -182,7 +182,7 @@ export class NavigatorModule implements IModule {
     }
   }
 
-  private async handleCoherenceDrop(payload: any): Promise<void> {
+  private async handleCoherenceDrop(_payload: any): Promise<void> {
     const riskAssessment = this.safetyMonitor.checkRisk(
       this.currentProfile?.name || 'Unknown',
       this.currentChemicalState,

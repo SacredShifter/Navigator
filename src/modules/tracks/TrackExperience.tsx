@@ -50,7 +50,7 @@ export function TrackExperience({ trackSlug, stageSlug, userId, onComplete, onEx
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [showSafetyOverlay, setShowSafetyOverlay] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
-  const [reflections, setReflections] = useState<Record<string, string>>({});
+  const [reflections] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

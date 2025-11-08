@@ -2,7 +2,6 @@ import { supabase } from '../../../lib/supabase';
 import type {
   NavigatorQuestion,
   NavigatorProfile,
-  AssessmentResponse,
   ProfileScore,
   ChemicalState,
   RegulationLevel
