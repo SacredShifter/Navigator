@@ -11,6 +11,7 @@ import { VoiceInterfaceModule } from './VoiceInterfaceModule';
 import { SystemControlModule } from './SystemControlModule';
 import { PersonalMemoryModule } from './PersonalMemoryModule';
 import { SelfImprovementModule } from './SelfImprovementModule';
+import { DirectiveCoordinator } from '../../services/jarvis/DirectiveCoordinator';
 
 class JarvisSystemSingleton {
   private initialized = false;
@@ -57,6 +58,9 @@ class JarvisSystemSingleton {
       await ModuleManager.initializeModule(improvementModule.manifest.id);
       this.modules.push(improvementModule);
       console.log('✓ [Jarvis] Self-improvement registered');
+
+      await DirectiveCoordinator.initialize();
+      console.log('✓ [Jarvis] Directive coordinator initialized');
 
       this.initialized = true;
 
@@ -109,6 +113,8 @@ class JarvisSystemSingleton {
 
   async deactivate(): Promise<void> {
     console.log('[Jarvis] Deactivating all modules...');
+
+    DirectiveCoordinator.stop();
 
     for (const module of this.modules) {
       try {

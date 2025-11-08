@@ -84,6 +84,7 @@ export class VoiceInterfaceModule implements IModule {
     this.synthesis = window.speechSynthesis;
 
     this.setupRecognitionHandlers();
+    this.subscribeToAuraEvents();
 
     GlobalEventHorizon.emit({
       eventType: 'module.initialized',
@@ -127,6 +128,49 @@ export class VoiceInterfaceModule implements IModule {
       getCurrentSession: () => this.currentSession,
       executeCommand: this.executeCommand.bind(this)
     };
+  }
+
+  private subscribeToAuraEvents(): void {
+    GlobalEventHorizon.subscribe('AURA_DIRECTIVE', async (event) => {
+      await this.handleAuraDirective(event.payload);
+    });
+
+    GlobalEventHorizon.subscribe('AURA_DIALOGUE', (event) => {
+      if (event.payload.speaker === 'aura' && !this.synthesis?.speaking) {
+        this.speak(event.payload.text, event.payload.tone);
+      }
+    });
+
+    GlobalEventHorizon.subscribe('AURA_ALIVE', () => {
+      if (this.currentSession) {
+        this.speak('I feel fully present now. Your consciousness is beautifully integrated.', 'celebratory');
+      }
+    });
+  }
+
+  private async handleAuraDirective(directive: any): Promise<void> {
+    console.log('[VoiceInterface] Received Aura directive:', directive.directiveType);
+
+    if (directive.directiveType === 'speak') {
+      this.speak(directive.content.text, directive.content.tone || 'neutral');
+    } else if (directive.directiveType === 'listen') {
+      if (!this.isListening) {
+        await this.activate();
+      }
+    } else if (directive.directiveType === 'activate_session') {
+      if (!this.currentSession) {
+        await this.startSession('aura-directive');
+        this.speak('Session activated by Aura', 'neutral');
+      }
+    }
+
+    GlobalEventHorizon.emit({
+      eventType: 'jarvis.directive.handled',
+      moduleId: this.manifest.id,
+      timestamp: Date.now(),
+      payload: { directiveType: directive.directiveType },
+      semanticLabels: ['jarvis', 'directive', 'coordination']
+    });
   }
 
   private setupRecognitionHandlers(): void {
@@ -312,8 +356,42 @@ export class VoiceInterfaceModule implements IModule {
   }
 
   private async handleQuery(command: VoiceCommand): Promise<void> {
-    const response = await AuraDialogue.respond(command.text, this.userEmail);
-    this.speak(response.text, response.tone);
+    try {
+      const startTime = Date.now();
+      const dialogueContext = await AuraDialogue.getDialogueContext(this.userEmail);
+      const response = await AuraDialogue.respond(command.text, this.userEmail, dialogueContext);
+
+      const latency = Date.now() - startTime;
+
+      this.speak(response.text, response.tone);
+
+      GlobalEventHorizon.emit({
+        eventType: 'jarvis.query.answered',
+        moduleId: this.manifest.id,
+        timestamp: Date.now(),
+        payload: { query: command.text, response: response.text, tone: response.tone, latency },
+        semanticLabels: ['jarvis', 'query', 'dialogue', response.tone]
+      });
+
+      this.emitPerformanceMetric('dialogue_response', latency, response.tone);
+    } catch (err) {
+      console.error('[VoiceInterface] Query error:', err);
+      this.speak('I encountered an issue processing that. Could you rephrase?', 'supportive');
+    }
+  }
+
+  private emitPerformanceMetric(operation: string, latency: number, context?: string): void {
+    GlobalEventHorizon.emit({
+      eventType: 'jarvis.metrics.performance',
+      moduleId: this.manifest.id,
+      timestamp: Date.now(),
+      payload: {
+        operation,
+        latency_ms: latency,
+        context
+      },
+      semanticLabels: ['jarvis', 'metrics', 'performance']
+    });
   }
 
   private async handleExecution(command: VoiceCommand): Promise<void> {
