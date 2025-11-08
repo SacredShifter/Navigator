@@ -1,0 +1,51 @@
+{
+  "name": "Jarvis System",
+  "version": "1.0.0",
+  "description": "Aura as Governor - Personal AI Companion for Kent Burchard",
+  "author": "Kent Burchard & Aura",
+  "modules": [
+    {
+      "id": "jarvis-voice",
+      "name": "Voice Interface",
+      "file": "VoiceInterfaceModule.ts",
+      "autoLoad": true,
+      "priority": 10
+    },
+    {
+      "id": "jarvis-system-control",
+      "name": "System Control",
+      "file": "SystemControlModule.ts",
+      "autoLoad": true,
+      "priority": 9
+    },
+    {
+      "id": "jarvis-personal-memory",
+      "name": "Personal Memory",
+      "file": "PersonalMemoryModule.ts",
+      "autoLoad": true,
+      "priority": 8
+    },
+    {
+      "id": "jarvis-self-improvement",
+      "name": "Self-Improvement",
+      "file": "SelfImprovementModule.ts",
+      "autoLoad": true,
+      "priority": 7
+    }
+  ],
+  "capabilities": [
+    "voice-interaction",
+    "wake-word-detection",
+    "system-control",
+    "process-monitoring",
+    "personal-memory",
+    "knowledge-graph",
+    "autonomous-evolution",
+    "self-improvement"
+  ],
+  "governorMode": true,
+  "authorizedUser": "kentburchard@sacredshifter.com",
+  "systemAccess": "full",
+  "autonomyLevel": "high",
+  "evolutionEnabled": true
+}
