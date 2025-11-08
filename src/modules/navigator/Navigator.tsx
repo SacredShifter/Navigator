@@ -149,6 +149,59 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
         );
 
         await exposedItems.routingEngine.assignTrack(userId, route.targetTrackId);
+
+        // ROE Integration: Initialize reality branch
+        try {
+          const branchId = `rb_${Date.now()}_${crypto.randomUUID()}`;
+
+          // Create initial reality branch
+          await supabase.from('reality_branches').insert({
+            id: branchId,
+            user_id: userId,
+            belief_state: {
+              profile_id: result.profile.id,
+              profile_name: result.profile.name,
+              essence_labels: result.profile.essence_labels
+            },
+            emotion_state: {
+              chemical_state: result.chemicalState,
+              regulation_level: result.regulationLevel
+            },
+            resonance_index: 0.5, // Bootstrap value
+            trajectory: []
+          });
+
+          // Call compute-resonance to get initial RI
+          const riResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compute-resonance`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                user_id: userId,
+                signal: { emotion_hint: result.chemicalState }
+              })
+            }
+          );
+
+          if (riResponse.ok) {
+            const { resonance_index } = await riResponse.json();
+
+            // Update branch with calculated RI
+            await supabase
+              .from('reality_branches')
+              .update({ resonance_index })
+              .eq('id', branchId);
+
+            console.log('ROE initialized: Reality branch created with RI:', resonance_index);
+          }
+        } catch (roeError) {
+          // Non-fatal: Log but don't block user flow
+          console.error('ROE initialization failed (non-fatal):', roeError);
+        }
       }
     }
 

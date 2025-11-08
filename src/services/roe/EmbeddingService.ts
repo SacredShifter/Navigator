@@ -1,14 +1,15 @@
 /**
- * EmbeddingService - OpenAI Integration for ROE
+ * EmbeddingService - OpenRouter Integration for ROE
  *
  * Handles semantic embedding generation for belief states, emotions, and
- * archetypal patterns using OpenAI's text-embedding-3-small model.
+ * archetypal patterns using OpenAI's text-embedding-3-small via OpenRouter.
  *
  * Features:
  * - 1536D → 768D dimensionality reduction for storage optimization
  * - Local caching to minimize API calls
  * - Rate limiting and retry logic
  * - Batch processing for efficiency
+ * - OpenRouter unified API access with better pricing
  */
 
 interface EmbeddingCacheEntry {
@@ -31,8 +32,8 @@ interface EmbeddingResponse {
 export class EmbeddingService {
   private cache: Map<string, EmbeddingCacheEntry> = new Map();
   private readonly cacheMaxAge = 24 * 60 * 60 * 1000; // 24 hours
-  private readonly apiUrl = 'https://api.openai.com/v1/embeddings';
-  private readonly model = 'text-embedding-3-small';
+  private readonly apiUrl = 'https://openrouter.ai/api/v1/embeddings';
+  private readonly model = 'openai/text-embedding-3-small';
   private readonly targetDimensions = 768;
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000;
@@ -59,7 +60,7 @@ export class EmbeddingService {
     }
 
     if (!this.apiKey) {
-      throw new Error('OpenAI API key not configured');
+      throw new Error('OpenRouter API key not configured');
     }
 
     let lastError: Error | null = null;
@@ -152,18 +153,19 @@ export class EmbeddingService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
+        'Authorization': `Bearer ${this.apiKey}`,
+        'HTTP-Referer': 'https://sacredshifter.com',
+        'X-Title': 'Sacred Shifter ROE'
       },
       body: JSON.stringify({
         model: this.model,
-        input: text,
-        dimensions: 1536 // Full dimensions, will reduce after
+        input: text
       })
     });
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+      throw new Error(`OpenRouter API error: ${response.status} - ${error}`);
     }
 
     const data = await response.json();
@@ -172,7 +174,7 @@ export class EmbeddingService {
 
   /**
    * Reduce embedding dimensions from 1536 to 768 using simple truncation
-   * More sophisticated: could use PCA, but truncation works well for OpenAI embeddings
+   * OpenRouter returns OpenAI embeddings which are optimized for truncation
    */
   private reduceDimensions(embedding: number[]): number[] {
     if (embedding.length <= this.targetDimensions) {
@@ -213,5 +215,5 @@ export class EmbeddingService {
 
 // Singleton instance (will be initialized with API key from environment)
 export const embeddingService = new EmbeddingService(
-  import.meta.env.VITE_OPENAI_API_KEY
+  import.meta.env.VITE_OPENROUTER_API_KEY
 );
