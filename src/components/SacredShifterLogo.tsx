@@ -16,7 +16,7 @@ export function SacredShifterLogo({ size = 80, className = '', showText = false 
 
   return (
     <div className={`inline-flex flex-col items-center ${className}`}>
-      {/* Official Sacred Shifter Logo */}
+      {/* Official Sacred Shifter Logo - Inverted Colors */}
       <img
         src={logoUrl}
         alt="Sacred Shifter Logo"
@@ -24,7 +24,7 @@ export function SacredShifterLogo({ size = 80, className = '', showText = false 
         height={size}
         className="drop-shadow-2xl"
         style={{
-          filter: 'drop-shadow(0 0 20px rgba(139, 92, 246, 0.3))'
+          filter: 'invert(1) drop-shadow(0 0 20px rgba(139, 92, 246, 0.5))'
         }}
       />
 
