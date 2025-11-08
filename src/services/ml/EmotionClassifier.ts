@@ -81,7 +81,7 @@ export class EmotionClassifier {
   constructor(config: Partial<EmotionClassifierConfig> = {}) {
     this.config = {
       confidenceThreshold: config.confidenceThreshold ?? 0.6,
-      useMLModel: config.useMLModel ?? false, // Set to true when model deployed
+      useMLModel: config.useMLModel ?? true, // ML model now deployed!
       cacheResults: config.cacheResults ?? true
     };
     this.cache = new Map();

@@ -206,7 +206,7 @@ export class CrisisDetectionService {
       .limit(1)
       .maybeSingle();
 
-    const entropySpike = entropyData?.context?.entropy?.overallEntropy > this.entropySpikeTh threshold;
+    const entropySpike = entropyData?.context?.entropy?.overallEntropy > this.entropySpikeThreshold;
 
     // Harm indicators would require NLP analysis of user inputs
     // For now, we set to false and rely on other signals

@@ -1,27 +1,34 @@
-import { useState } from 'react';
-import { Navigator } from './modules/navigator/Navigator';
-import { TrackDisplay } from './modules/tracks/TrackDisplay';
+/**
+ * Sacred Shifter Connect - Main App
+ *
+ * Integrates Reality Optimization Engine (ROE) with all 8 phases:
+ * 1-2: Core ROE (Vector embeddings, reality branches)
+ * 3: Collective intelligence
+ * 4: Insights & visualization
+ * 5: Crisis detection & safety
+ * 6: Anonymous cohorts
+ * 7: Professional referral network
+ * 8: ML-powered pattern recognition
+ */
 
-type AppState = 'navigator' | 'track';
+import { AppShell } from './components/AppShell';
 
 function App() {
-  const [appState, setAppState] = useState<AppState>('navigator');
-  const [currentTrackId, setCurrentTrackId] = useState<string>('');
+  // In production, get from auth context
+  const userId = 'demo-user';
 
-  const handleNavigatorComplete = (trackId: string) => {
-    setCurrentTrackId(trackId);
-    setAppState('track');
-  };
+  // Check if user is a supporter (premium/pay-what-you-can)
+  // For now, check premium allowlist from .env
+  const premiumAllowlist = import.meta.env.VITE_PREMIUM_ALLOWLIST?.split(',') || [];
+  const userEmail = 'kentburchard@sacredshifter.com'; // Demo - get from auth
+  const isSupporter = premiumAllowlist.includes(userEmail);
 
-  const handleReassess = () => {
-    setAppState('navigator');
-  };
-
-  if (appState === 'track' && currentTrackId) {
-    return <TrackDisplay trackId={currentTrackId} onReassess={handleReassess} />;
-  }
-
-  return <Navigator onComplete={handleNavigatorComplete} />;
+  return (
+    <AppShell
+      userId={userId}
+      isSupporter={isSupporter}
+    />
+  );
 }
 
 export default App;
