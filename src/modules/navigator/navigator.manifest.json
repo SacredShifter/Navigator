@@ -1,0 +1,41 @@
+{
+  "id": "navigator-engine",
+  "name": "The Navigator",
+  "version": "1.0.0",
+  "author": "Sacred Shifter",
+  "essenceLabels": [
+    "gateway",
+    "profiler",
+    "router",
+    "safety-guardian",
+    "adaptive-intelligence",
+    "trauma-aware",
+    "state-detector"
+  ],
+  "capabilities": [
+    "user-profiling",
+    "state-detection",
+    "track-routing",
+    "safety-monitoring",
+    "reassessment",
+    "chemical-state-awareness",
+    "regulation-assessment",
+    "journey-tracking"
+  ],
+  "telosAlignment": [
+    "healing",
+    "awakening",
+    "integration",
+    "safety",
+    "transformation",
+    "self-knowledge",
+    "appropriate-pacing"
+  ],
+  "dependencies": [
+    "database-service",
+    "event-bus",
+    "label-processor"
+  ],
+  "resourceFootprintMB": 15,
+  "priority": 100
+}
