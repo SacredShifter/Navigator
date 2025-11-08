@@ -130,11 +130,11 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
 
   if (initError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-4">
         <div className="text-center text-white max-w-md">
           <div className="text-2xl font-bold text-red-400 mb-4">Initialization Error</div>
           <div className="text-lg mb-4">{initError}</div>
-          <div className="text-sm text-blue-300">
+          <div className="text-sm text-cyan-300">
             Please check your database connection and ensure all migrations have been applied.
           </div>
         </div>
@@ -144,7 +144,7 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-4">
         <div className="text-center text-white">
           <div className="text-xl">Initializing Navigator...</div>
         </div>
@@ -159,7 +159,7 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   if (state === 'assessment') {
     if (questions.length === 0) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-4">
           <div className="text-center text-white">
             <div className="text-xl mb-4">Loading questions...</div>
           </div>
@@ -193,10 +193,10 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
 
   if (state === 'complete') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-4">
         <div className="text-center text-white">
-          <h2 className="text-3xl font-bold mb-4">Assessment Complete</h2>
-          <p className="text-xl text-blue-200">
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-violet-400 bg-clip-text text-transparent mb-4">Assessment Complete</h2>
+          <p className="text-xl text-cyan-300">
             Redirecting to your personalized track...
           </p>
         </div>
