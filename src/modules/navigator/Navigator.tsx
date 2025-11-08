@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { NavigatorModule } from './NavigatorModule';
+import { PrivacyConsent } from './components/PrivacyConsent';
 import { NavigatorIntro } from './components/NavigatorIntro';
 import { AssessmentFlow } from './components/AssessmentFlow';
 import { ProfileResult } from './components/ProfileResult';
 import type { NavigatorQuestion, NavigatorProfile, ProfileScore, ChemicalState, RegulationLevel } from '../../types/navigator';
+import { supabase } from '../../lib/supabase';
 
-type NavigatorState = 'intro' | 'assessment' | 'result' | 'complete';
+type NavigatorState = 'privacy' | 'intro' | 'assessment' | 'result' | 'complete';
 
 interface NavigatorProps {
   userId?: string;
@@ -13,7 +15,9 @@ interface NavigatorProps {
 }
 
 export function Navigator({ userId, onComplete }: NavigatorProps) {
-  const [state, setState] = useState<NavigatorState>('intro');
+  const [state, setState] = useState<NavigatorState>('privacy');
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [hasConsent, setHasConsent] = useState(false);
   const [navigatorModule] = useState(() => new NavigatorModule());
   const [questions, setQuestions] = useState<NavigatorQuestion[]>([]);
   const [profile, setProfile] = useState<NavigatorProfile | null>(null);
@@ -27,6 +31,27 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
   const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
+    const checkExistingConsent = async () => {
+      if (!userId) return;
+
+      const { data } = await supabase
+        .from('user_onboarding_state')
+        .select('consent_privacy_given')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (data?.consent_privacy_given) {
+        setHasConsent(true);
+        setState('intro');
+      }
+    };
+
+    checkExistingConsent();
+  }, [userId]);
+
+  useEffect(() => {
+    if (!hasConsent && state === 'privacy') return;
+
     const init = async () => {
       try {
         await navigatorModule.initialize();
@@ -42,7 +67,20 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
     return () => {
       navigatorModule.deactivate();
     };
-  }, [navigatorModule]);
+  }, [navigatorModule, hasConsent, state]);
+
+  const handleConsentGiven = (granted: boolean) => {
+    if (granted) {
+      setHasConsent(true);
+      setState('intro');
+    }
+  };
+
+  const handleConsentDeclined = () => {
+    if (onComplete) {
+      onComplete('generic-experience');
+    }
+  };
 
   const handleBegin = async () => {
     try {
@@ -139,6 +177,16 @@ export function Navigator({ userId, onComplete }: NavigatorProps) {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (state === 'privacy') {
+    return (
+      <PrivacyConsent
+        onConsent={handleConsentGiven}
+        onDecline={handleConsentDeclined}
+        sessionId={sessionId}
+      />
     );
   }
 
