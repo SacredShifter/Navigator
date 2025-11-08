@@ -35,6 +35,23 @@ interface SelectFieldRequest {
   };
 }
 
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  return denominator === 0 ? 0 : dotProduct / denominator;
+}
+
 Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -101,20 +118,98 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Simple scoring (placeholder for full RSM)
-    // TODO: Integrate vector similarity when pattern_signatures are populated
-    const scored = candidates.map(field => ({
-      field,
-      score: (
-        0.4 * field.learning_weight +
-        0.3 * currentRI +
-        0.2 * (1 - field.fatigue_score / 10) +
-        0.1 * Math.random() // Diversity sampling
-      )
-    }));
+    // Generate user state embedding from belief + emotion context
+    const userStateText = [
+      `Profile: ${userState.profile_id}`,
+      `Chemical state: ${userState.chemical_state}`,
+      `Regulation level: ${userState.regulation_level || 'unknown'}`,
+      signal?.text || '',
+      signal?.emotion_hint ? `Feeling: ${signal.emotion_hint}` : ''
+    ].filter(Boolean).join('. ');
+
+    // Get user state embedding (or use synthetic if OpenRouter not available)
+    let userStateVector: number[] | null = null;
+    try {
+      const embeddingResponse = await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-embedding`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': authHeader,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ text: userStateText })
+        }
+      );
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        userStateVector = embeddingData.embedding;
+      }
+    } catch (error) {
+      console.warn('Embedding generation failed, using simplified scoring:', error);
+    }
+
+    // RSM Scoring with vector similarity
+    const alpha = 0.4;  // Pattern match weight
+    const beta = 0.3;   // RI contribution weight
+    const gamma = 0.2;  // Learning weight prior
+    const delta = 0.1;  // Fatigue penalty weight
+
+    const scored = candidates.map(field => {
+      let patternMatch = 0;
+
+      // Calculate pattern similarity if vectors available
+      if (userStateVector && field.pattern_signature) {
+        const fieldVector = Array.isArray(field.pattern_signature)
+          ? field.pattern_signature
+          : JSON.parse(field.pattern_signature as any);
+
+        if (fieldVector.length === userStateVector.length) {
+          patternMatch = cosineSimilarity(userStateVector, fieldVector);
+        }
+      }
+
+      const fatiguePenalty = Math.exp(field.fatigue_score / 10) - 1;
+
+      const totalScore =
+        alpha * patternMatch +
+        beta * currentRI +
+        gamma * field.learning_weight -
+        delta * fatiguePenalty;
+
+      return {
+        field,
+        score: totalScore,
+        components: {
+          patternMatch,
+          riContribution: currentRI,
+          learningWeight: field.learning_weight,
+          fatiguePenalty
+        }
+      };
+    });
 
     scored.sort((a, b) => b.score - a.score);
-    const selected = scored[0].field;
+
+    // Diversity sampling with temperature-based softmax
+    const temperature = 0.2;
+    const expScores = scored.slice(0, 5).map(s => Math.exp(s.score / temperature));
+    const sumExp = expScores.reduce((sum, exp) => sum + exp, 0);
+    const probabilities = expScores.map(exp => exp / sumExp);
+
+    let selectedIndex = 0;
+    const random = Math.random();
+    let cumulative = 0;
+    for (let i = 0; i < probabilities.length; i++) {
+      cumulative += probabilities[i];
+      if (random <= cumulative) {
+        selectedIndex = i;
+        break;
+      }
+    }
+
+    const selected = scored[selectedIndex].field;
+    const selectedScore = scored[selectedIndex];
 
     // Update fatigue
     await supabase
@@ -142,7 +237,8 @@ Deno.serve(async (req: Request) => {
       payload: {
         field_id: selected.id,
         field_name: selected.name,
-        score: scored[0].score,
+        score: selectedScore.score,
+        components: selectedScore.components,
         intent,
         signal
       },
@@ -150,13 +246,32 @@ Deno.serve(async (req: Request) => {
       resonance_index: currentRI
     });
 
+    // Generate reasoning
+    const reasons: string[] = [];
+    if (selectedScore.components.patternMatch > 0.7) {
+      reasons.push(`Strong pattern alignment (${(selectedScore.components.patternMatch * 100).toFixed(0)}%)`);
+    }
+    if (currentRI > 0.75) {
+      reasons.push(`High coherence state (RI: ${currentRI.toFixed(2)})`);
+    } else if (currentRI < 0.4) {
+      reasons.push(`Supporting stabilization (RI: ${currentRI.toFixed(2)})`);
+    }
+    if (selectedScore.components.learningWeight > 0.7) {
+      reasons.push('Previously effective pathway');
+    }
+    const reasoning = reasons.length > 0
+      ? reasons.join('. ')
+      : `Selected via RSM (score: ${selectedScore.score.toFixed(3)})`;
+
     return new Response(
       JSON.stringify({
         ri: currentRI,
         emotion: userState.chemical_state || 'unknown',
         probability_field_id: selected.id,
         outcome: selected.outcome_data,
-        reasoning: `Selected based on learning weight (${selected.learning_weight.toFixed(2)}) and current RI (${currentRI.toFixed(2)})`
+        reasoning,
+        score: selectedScore.score,
+        components: selectedScore.components
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

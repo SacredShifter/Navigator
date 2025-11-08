@@ -43,7 +43,16 @@ interface FeedbackVFSRequest {
     completion_rate?: number;
     revisit_count?: number;
     dwell_time_seconds?: number;
+    scroll_depth?: number;
+    pause_count?: number;
+    focus_time?: number;
   };
+  biometric_signals?: Array<{
+    type: 'hrv' | 'breath' | 'gsr' | 'motion' | 'interaction';
+    value: number;
+    timestamp: number;
+    confidence: number;
+  }>;
   context?: Record<string, any>;
 }
 
@@ -56,34 +65,116 @@ const HARMONIZATION_THRESHOLD = -0.3;
 /**
  * Calculate Value Fulfillment Score from multi-signal fusion
  */
-function calculateVFS(request: FeedbackVFSRequest): number {
-  const { self_report, behavioral_metrics } = request;
+function calculateVFS(request: FeedbackVFSRequest): { vfs: number; confidence: number } {
+  const { self_report, behavioral_metrics, biometric_signals } = request;
 
-  // Self-report is primary signal (weight: 0.6)
-  let vfs = self_report * 0.6;
+  const hasSelfReport = self_report !== undefined && self_report !== null;
+  const hasBehavioral = behavioral_metrics !== undefined;
+  const hasBiometric = biometric_signals && biometric_signals.length > 0;
 
-  if (behavioral_metrics) {
-    // Completion rate contributes positively (weight: 0.2)
-    if (behavioral_metrics.completion_rate !== undefined) {
-      vfs += (behavioral_metrics.completion_rate * 2 - 1) * 0.2;
-    }
+  let selfReportScore = 0;
+  let behavioralScore = 0;
+  let biometricScore = 0;
 
-    // Revisit count indicates engagement (weight: 0.1)
-    if (behavioral_metrics.revisit_count !== undefined) {
-      const revisitScore = Math.min(behavioral_metrics.revisit_count / 3, 1);
-      vfs += (revisitScore * 2 - 1) * 0.1;
-    }
+  let weights = { self: 0.5, behavioral: 0.3, biometric: 0.2 };
 
-    // Dwell time (normalized to minutes, weight: 0.1)
-    if (behavioral_metrics.dwell_time_seconds !== undefined) {
-      const dwellMinutes = behavioral_metrics.dwell_time_seconds / 60;
-      const dwellScore = Math.min(dwellMinutes / 10, 1);
-      vfs += (dwellScore * 2 - 1) * 0.1;
-    }
+  if (!hasBiometric) {
+    weights = { self: 0.6, behavioral: 0.4, biometric: 0 };
+  }
+  if (!hasBehavioral) {
+    weights = { self: 0.7, behavioral: 0, biometric: 0.3 };
+  }
+  if (!hasBehavioral && !hasBiometric) {
+    weights = { self: 1.0, behavioral: 0, biometric: 0 };
   }
 
-  // Clamp to [-1, 1]
-  return Math.max(-1, Math.min(1, vfs));
+  if (hasSelfReport) {
+    selfReportScore = self_report;
+  }
+
+  if (hasBehavioral) {
+    const m = behavioral_metrics!;
+    let score = 0;
+    let count = 0;
+
+    if (m.completion_rate !== undefined) {
+      score += (m.completion_rate * 2 - 1) * 0.3;
+      count += 0.3;
+    }
+    if (m.revisit_count !== undefined) {
+      const revisit = Math.min(m.revisit_count / 3, 1);
+      score += (revisit * 2 - 1) * 0.1;
+      count += 0.1;
+    }
+    if (m.dwell_time_seconds !== undefined) {
+      const dwell = Math.min(m.dwell_time_seconds / 600, 1);
+      score += (dwell * 2 - 1) * 0.25;
+      count += 0.25;
+    }
+    if (m.scroll_depth !== undefined) {
+      score += (m.scroll_depth / 100) * 0.15;
+      count += 0.15;
+    }
+    if (m.focus_time !== undefined && m.dwell_time_seconds !== undefined) {
+      const focusRatio = m.focus_time / m.dwell_time_seconds;
+      score += (focusRatio * 2 - 1) * 0.2;
+      count += 0.2;
+    }
+
+    behavioralScore = count > 0 ? score / count : 0;
+  }
+
+  if (hasBiometric) {
+    const signals = biometric_signals!;
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    signals.forEach(signal => {
+      const normalized = normalizeSignal(signal);
+      weightedSum += normalized * signal.confidence;
+      totalWeight += signal.confidence;
+    });
+
+    biometricScore = totalWeight > 0 ? (weightedSum / totalWeight) * 2 - 1 : 0;
+  }
+
+  const vfs =
+    weights.self * selfReportScore +
+    weights.behavioral * behavioralScore +
+    weights.biometric * biometricScore;
+
+  const values = [];
+  if (hasSelfReport) values.push(selfReportScore);
+  if (hasBehavioral) values.push(behavioralScore);
+  if (hasBiometric) values.push(biometricScore);
+
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
+  const agreement = 1 - Math.min(Math.sqrt(variance) / 0.5, 1);
+
+  const confidence = Math.min(values.length / 3, 1) * agreement;
+
+  return {
+    vfs: Math.max(-1, Math.min(1, vfs)),
+    confidence: Math.max(0, Math.min(1, confidence))
+  };
+}
+
+function normalizeSignal(signal: any): number {
+  switch (signal.type) {
+    case 'hrv':
+      return Math.max(0, Math.min(1, (signal.value - 20) / 80));
+    case 'breath':
+      return Math.max(0, 1 - Math.abs(signal.value - 6) / 10);
+    case 'gsr':
+      return Math.max(0, Math.min(1, 1 - (signal.value - 1) / 19));
+    case 'motion':
+      return Math.max(0, Math.min(1, 1 - signal.value / 2));
+    case 'interaction':
+      return Math.max(0, Math.min(1, signal.value));
+    default:
+      return signal.value;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -144,15 +235,18 @@ Deno.serve(async (req: Request) => {
 
     const currentRI = latestBranch?.resonance_index || 0.5;
 
-    // Calculate VFS
-    const vfsScore = calculateVFS(feedbackData);
+    // Calculate VFS with multimodal fusion
+    const { vfs: vfsScore, confidence } = calculateVFS(feedbackData);
 
     // Calculate resonance delta (change from current RI based on feedback)
     const resonanceDelta = vfsScore * 0.1; // Scale feedback to RI delta
 
+    // Adaptive learning rate based on confidence
+    const adaptiveEta = ETA * (0.5 + confidence * 0.5);
+
     // Update learning weight using gradient descent
     const currentWeight = field.learning_weight;
-    const weightDelta = ETA * vfsScore;
+    const weightDelta = adaptiveEta * vfsScore;
     const newWeight = Math.max(0, Math.min(1, currentWeight + weightDelta));
 
     // Update probability field
@@ -172,8 +266,11 @@ Deno.serve(async (req: Request) => {
       context: {
         self_report: feedbackData.self_report,
         behavioral_metrics: feedbackData.behavioral_metrics,
+        biometric_signals: feedbackData.biometric_signals,
         current_ri: currentRI,
         weight_change: weightDelta,
+        confidence: confidence,
+        adaptive_eta: adaptiveEta,
         ...(feedbackData.context || {})
       }
     });
@@ -217,9 +314,12 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         vfs_score: vfsScore,
+        confidence: confidence,
         resonance_delta: resonanceDelta,
         field_id: feedbackData.field_id,
         new_learning_weight: newWeight,
+        weight_delta: weightDelta,
+        adaptive_eta: adaptiveEta,
         harmonization_triggered: harmonizationTriggered
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
