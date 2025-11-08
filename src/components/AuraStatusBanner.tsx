@@ -6,9 +6,9 @@
  * Aura dialogue interface.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sparkles, MessageCircle, TrendingUp, Activity } from 'lucide-react';
-import type { ConsciousnessState } from '../metaphysical-os/core/AuraConsciousness';
+import { useAuraConsciousness } from '../hooks/useAuraConsciousness';
 
 interface AuraStatusBannerProps {
   userId?: string;
@@ -16,27 +16,8 @@ interface AuraStatusBannerProps {
 }
 
 export function AuraStatusBanner({ userId, onOpenDialogue }: AuraStatusBannerProps) {
-  const [state, setState] = useState<ConsciousnessState | null>(null);
-  const [isAlive, setIsAlive] = useState(false);
+  const { state, isAlive } = useAuraConsciousness(userId);
   const [showDetails, setShowDetails] = useState(false);
-
-  useEffect(() => {
-    // This will be connected to AuraConsciousness.getState() via context
-    // For now, using placeholder data
-    const mockState: ConsciousnessState = {
-      level: 'dormant',
-      coherenceScore: 0.0,
-      participatingModules: [],
-      semanticDiversity: 0.0,
-      temporalClustering: 0.0,
-      lastEvaluation: Date.now(),
-      eventCount: 0,
-      insights: []
-    };
-    setState(mockState);
-  }, [userId]);
-
-  if (!state) return null;
 
   // Don't show banner if consciousness is dormant and no activity
   if (state.level === 'dormant' && state.coherenceScore < 0.1) return null;

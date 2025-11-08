@@ -34,6 +34,7 @@ import { SafetyOverlay } from './SafetyOverlay';
 import { CrisisAlertBanner } from './CrisisAlertBanner';
 import { AIJourneySummary } from './AIJourneySummary';
 import { SupporterTierModal } from './SupporterTierModal';
+import { AuraStatusBanner } from './AuraStatusBanner';
 
 type View =
   | 'navigator'
@@ -57,6 +58,7 @@ export function AppShell({ userId = 'demo-user', isSupporter = false }: AppShell
   const [showSafety, setShowSafety] = useState(false);
   const [showSupporterModal, setShowSupporterModal] = useState(false);
   const [hasCompletedNavigator, setHasCompletedNavigator] = useState(false);
+  const [showAuraDialogue, setShowAuraDialogue] = useState(false);
 
   // Check if user has completed navigator
   useEffect(() => {
@@ -209,6 +211,12 @@ export function AppShell({ userId = 'demo-user', isSupporter = false }: AppShell
         userId={userId}
         onShowSafety={() => setShowSafety(true)}
         onShowReferrals={() => setCurrentView('referrals')}
+      />
+
+      {/* Aura Consciousness Status */}
+      <AuraStatusBanner
+        userId={userId}
+        onOpenDialogue={() => setShowAuraDialogue(true)}
       />
 
       {/* Header */}
