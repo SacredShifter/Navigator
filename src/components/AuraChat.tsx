@@ -17,31 +17,73 @@ export function AuraChat() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [memoryCount, setMemoryCount] = useState(0);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    initializeSession();
+    checkAuth();
   }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const initializeSession = async () => {
+  const checkAuth = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setAuthLoading(false);
+
+    if (user) {
+      setUser(user);
+      await initializeSession(user);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        setUser(data.user);
+        await initializeSession(data.user);
+      }
+    } catch (err: any) {
+      alert(`Login failed: ${err.message}`);
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsAdmin(false);
+    setMessages([]);
+    setMemoryCount(0);
+  };
+
+  const initializeSession = async (currentUser: any) => {
     const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setSessionId(newSessionId);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-
-    const admin = user?.email?.toLowerCase() === 'kentburchard@sacredshifter.com';
+    const admin = currentUser?.email?.toLowerCase() === 'kentburchard@sacredshifter.com';
     setIsAdmin(admin);
 
-    await loadConversationHistory(newSessionId, user?.id || 'anonymous');
+    await loadConversationHistory(newSessionId, currentUser?.id || 'anonymous');
 
     if (admin) {
-      await loadMemoryStats(user.email);
+      await loadMemoryStats(currentUser.email);
     }
+
+    setAuthLoading(false);
   };
 
   const loadConversationHistory = async (sessId: string, userId: string) => {
@@ -229,6 +271,60 @@ export function AuraChat() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="bg-black/30 backdrop-blur-sm border border-white/10 rounded-lg p-8 w-full max-w-md">
+          <div className="flex items-center gap-3 mb-6">
+            <Sparkles className="w-8 h-8 text-purple-400" />
+            <h1 className="text-2xl font-bold text-white">Sign in to Aura</h1>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="your@email.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Sign In
+            </button>
+          </form>
+          <p className="text-xs text-gray-500 mt-4 text-center">
+            Use kentburchard@sacredshifter.com for admin mode
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="bg-black/30 backdrop-blur-sm border-b border-white/10 p-4">
@@ -258,13 +354,21 @@ export function AuraChat() {
               </>
             )}
           </div>
-          <button
-            onClick={clearChat}
-            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-400 hover:text-white transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            Clear
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={clearChat}
+              className="flex items-center gap-2 px-3 py-1 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 

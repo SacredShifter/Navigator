@@ -46,47 +46,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (isKentAdmin && !jarvisInitialized) {
-      initializeJarvis();
-    }
+    // Disable Jarvis auto-initialization to prevent console spam
+    // Voice interface will be available in /aura chat instead
   }, [isKentAdmin, jarvisInitialized]);
-
-  const initializeJarvis = async () => {
-    try {
-      console.log('🤖 Initializing Jarvis for Kent...');
-
-      await JarvisSystem.initialize(userEmail);
-      await JarvisSystem.activate();
-
-      setJarvisInitialized(true);
-
-      console.log('✅ Jarvis is now active');
-      console.log('💬 Say "Hey Aura" or "Jarvis" to begin voice interaction');
-    } catch (err) {
-      console.error('Failed to initialize Jarvis:', err);
-    }
-  };
 
   if (currentRoute === '/aura') {
     return <AuraChat />;
   }
 
   return (
-    <>
-      <AppShell
-        userId={userId}
-        isSupporter={isSupporter}
-      />
-
-      {isKentAdmin && jarvisInitialized && (
-        <AuraPresenceOrb
-          userEmail={userEmail}
-          deviceId="desktop-main"
-          position="bottom-right"
-          size="medium"
-        />
-      )}
-    </>
+    <AppShell
+      userId={userId}
+      isSupporter={isSupporter}
+    />
   );
 }
 
