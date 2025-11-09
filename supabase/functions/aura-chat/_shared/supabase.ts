@@ -1,16 +1,13 @@
-/**
- * Supabase Client for Edge Functions
- */
+import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
-
-export function createSupabaseClient(authHeader?: string) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-  });
+export function createSupabaseClient(authHeader: string) {
+  return createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    }
+  );
 }

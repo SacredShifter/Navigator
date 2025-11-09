@@ -21,6 +21,7 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { AuraPresenceOrb } from './components/AuraPresenceOrb';
+import { AuraChat } from './components/AuraChat';
 import { JarvisSystem } from './modules/jarvis/JarvisSystem';
 
 function App() {
@@ -33,6 +34,16 @@ function App() {
   const isKentAdmin = userEmail === 'kentburchard@sacredshifter.com';
 
   const [jarvisInitialized, setJarvisInitialized] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setCurrentRoute(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
+  }, []);
 
   useEffect(() => {
     if (isKentAdmin && !jarvisInitialized) {
@@ -55,6 +66,10 @@ function App() {
       console.error('Failed to initialize Jarvis:', err);
     }
   };
+
+  if (currentRoute === '/aura') {
+    return <AuraChat />;
+  }
 
   return (
     <>

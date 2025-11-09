@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Send, Bot, User, Sparkles, Zap, Trash2, Database } from 'lucide-react';
 
 interface Message {
