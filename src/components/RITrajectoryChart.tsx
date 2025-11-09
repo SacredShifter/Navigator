@@ -68,10 +68,10 @@ export function RITrajectoryChart({
 
       const cutoffDate = getCutoffDate(timeRange);
 
-      // Fetch reality branches with RI values (only existing columns)
+      // Fetch reality branches with RI values and component columns
       const { data: branches, error: branchError } = await supabase
         .from('reality_branches')
-        .select('created_at, resonance_index')
+        .select('created_at, resonance_index, belief_coherence, emotion_stability, value_alignment')
         .eq('user_id', userId)
         .gte('created_at', cutoffDate)
         .order('created_at', { ascending: true });
@@ -83,33 +83,13 @@ export function RITrajectoryChart({
         return;
       }
 
-      // Fetch RI component data from compute-resonance events
-      const { data: riEvents, error: eventsError } = await supabase
-        .from('roe_horizon_events')
-        .select('created_at, payload, resonance_index')
-        .eq('user_id', userId)
-        .eq('event_type', 'resonance.calculated')
-        .gte('created_at', cutoffDate)
-        .order('created_at', { ascending: true });
-
-      if (eventsError) throw eventsError;
-
-      // Merge branch data with component data
-      const componentMap = new Map(
-        riEvents?.map(e => [
-          new Date(e.created_at).toISOString(),
-          {
-            belief_coherence: e.payload?.components?.beliefCoherence,
-            emotion_stability: e.payload?.components?.emotionStability,
-            value_alignment: e.payload?.components?.valueAlignment
-          }
-        ]) || []
-      );
-
+      // Map branch data directly (component columns now in reality_branches table)
       const dataPoints: RIDataPoint[] = branches.map(branch => ({
         timestamp: branch.created_at,
         resonance_index: branch.resonance_index,
-        ...componentMap.get(branch.created_at)
+        belief_coherence: branch.belief_coherence,
+        emotion_stability: branch.emotion_stability,
+        value_alignment: branch.value_alignment
       }));
 
       setData(dataPoints);
