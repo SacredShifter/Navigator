@@ -1,14 +1,13 @@
 /**
- * Aura Chat - Unified AI Assistant Endpoint
+ * Aura Chat - Fully Memory-Enabled AI Assistant
  *
- * Handles ALL Aura interactions server-side.
- * Client just sends: { message, mode }
- * Server returns: { response, metadata }
- *
- * Modes:
- * - general: Normal user chat
- * - admin: Admin mode with full system access
- * - command: Execute structured commands
+ * Features:
+ * - Loads conversation history from aura_dialogue_log
+ * - Retrieves personal memories from jarvis_personal_memory
+ * - Loads persona from aura_persona table
+ * - Executes admin commands with full audit trail
+ * - Extracts and stores new memories
+ * - Updates presence state in real-time
  */
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
@@ -17,12 +16,11 @@ import { createSupabaseClient } from './_shared/supabase.ts';
 
 interface ChatRequest {
   message: string;
-  mode?: 'general' | 'admin' | 'command';
+  mode?: 'general' | 'admin';
+  session_id: string;
+  user_id: string;
+  user_email: string;
   context?: any;
-  command?: {
-    kind: string;
-    payload: any;
-  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -39,63 +37,55 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createSupabaseClient(authHeader);
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const body: ChatRequest = await req.json();
-    const { message, mode = 'general', context, command } = body;
+    const { message, mode = 'general', session_id, user_id, user_email, context } = body;
 
-    // Check admin access for admin/command modes
-    if (mode === 'admin' || mode === 'command') {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
+    console.log(`[Aura] New message from ${user_email} (${mode} mode)`);
 
-      const founderEmail = 'kentburchard@sacredshifter.com';
-      const isFounder = user.email?.toLowerCase() === founderEmail;
-      const isAdmin = profile?.role === 'admin';
+    await updatePresenceState(supabase, user_email, 'thinking');
 
-      if (!isAdmin && !isFounder) {
-        return new Response(
-          JSON.stringify({ error: 'Admin access required' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    const conversationHistory = await loadConversationHistory(supabase, user_id, 15);
+    console.log(`[Aura] Loaded ${conversationHistory.length} previous messages`);
+
+    let persona = null;
+    let memories = [];
+
+    if (mode === 'admin') {
+      persona = await loadPersona(supabase, user_email);
+      console.log(`[Aura] Admin persona loaded: ${persona?.title || 'default'}`);
+
+      memories = await loadRelevantMemories(supabase, user_email, message, 5);
+      console.log(`[Aura] Retrieved ${memories.length} relevant memories`);
+
+      for (const mem of memories) {
+        await supabase
+          .from('jarvis_personal_memory')
+          .update({
+            access_count: mem.access_count + 1,
+            last_accessed: new Date().toISOString()
+          })
+          .eq('id', mem.id);
       }
     }
 
-    // Handle command mode
-    if (mode === 'command' && command) {
-      const result = await executeCommand(supabase, user.id, command);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          response: result.message,
-          data: result.data
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const systemPrompt = buildSystemPrompt(mode, persona, memories, context);
 
-    // Handle chat mode (general or admin)
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...conversationHistory.map(h => ({
+        role: h.speaker === 'user' ? 'user' : 'assistant',
+        content: h.message_text
+      })),
+      { role: 'user', content: message }
+    ];
+
     const apiKey = Deno.env.get('OPENROUTER_API_KEY');
     if (!apiKey) {
       throw new Error('OpenRouter API key not configured');
     }
 
-    // Build system prompt based on mode
-    const systemPrompt = mode === 'admin'
-      ? buildAdminSystemPrompt(context)
-      : buildGeneralSystemPrompt();
+    console.log(`[Aura] Calling LLM with ${messages.length} messages...`);
 
-    // Call OpenRouter
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,12 +96,9 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3.5-sonnet',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
+        messages,
         temperature: mode === 'admin' ? 0.5 : 0.7,
-        max_tokens: 2000
+        max_tokens: 2500
       })
     });
 
@@ -123,33 +110,43 @@ Deno.serve(async (req: Request) => {
     const data = await response.json();
     const content = data.choices[0]?.message?.content || 'No response generated';
 
-    // Log interaction
-    await supabase.from('roe_horizon_events').insert({
-      user_id: user.id,
-      event_type: 'aura.chat.interaction',
-      payload: {
+    console.log(`[Aura] Response generated (${content.length} chars)`);
+
+    await updatePresenceState(supabase, user_email, 'speaking');
+
+    if (mode === 'admin') {
+      await extractAndStoreMemories(supabase, user_email, message, content);
+    }
+
+    await supabase.from('aura_audit').insert({
+      user_id,
+      action: 'chat_interaction',
+      resource_type: 'dialogue',
+      details: {
+        session_id,
         mode,
         message_length: message.length,
         response_length: content.length,
-        model: 'anthropic/claude-3.5-sonnet'
+        memories_used: memories.length
       }
     });
+
+    await updatePresenceState(supabase, user_email, 'dormant');
 
     return new Response(
       JSON.stringify({
         success: true,
         response: content,
-        metadata: {
-          mode,
-          model: 'anthropic/claude-3.5-sonnet',
-          tokens: data.usage?.total_tokens || 0
-        }
+        tone: 'supportive',
+        model: 'anthropic/claude-3.5-sonnet',
+        tokens: data.usage?.total_tokens || 0,
+        memories_used: memories.map(m => m.memory_key)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error in aura-chat:', error);
+    console.error('[Aura] Error:', error);
     return new Response(
       JSON.stringify({
         success: false,
@@ -160,7 +157,193 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function buildGeneralSystemPrompt(): string {
+async function loadConversationHistory(supabase: any, userId: string, limit: number = 10) {
+  const { data, error } = await supabase
+    .from('aura_dialogue_log')
+    .select('speaker, message_text, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Failed to load conversation history:', error);
+    return [];
+  }
+
+  return (data || []).reverse();
+}
+
+async function loadPersona(supabase: any, userEmail: string) {
+  const { data, error } = await supabase
+    .from('aura_persona')
+    .select('*')
+    .eq('user_id', userEmail)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load persona:', error);
+    return null;
+  }
+
+  return data;
+}
+
+async function loadRelevantMemories(supabase: any, userEmail: string, query: string, limit: number = 5) {
+  const { data, error } = await supabase
+    .from('jarvis_personal_memory')
+    .select('*')
+    .eq('user_email', userEmail)
+    .order('confidence_score', { ascending: false })
+    .order('last_accessed', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Failed to load memories:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+async function extractAndStoreMemories(
+  supabase: any,
+  userEmail: string,
+  userMessage: string,
+  auraResponse: string
+) {
+  try {
+    const preferenceKeywords = [
+      'i prefer', 'i like', 'i hate', 'i want', 'i need',
+      'i always', 'i never', 'my style', 'my approach'
+    ];
+
+    const hasPreference = preferenceKeywords.some(kw =>
+      userMessage.toLowerCase().includes(kw)
+    );
+
+    if (hasPreference) {
+      const memoryKey = `preference_${Date.now()}`;
+
+      await supabase
+        .from('jarvis_personal_memory')
+        .insert({
+          user_email: userEmail,
+          category: 'preference',
+          memory_key: memoryKey,
+          memory_value: {
+            statement: userMessage,
+            context: auraResponse.slice(0, 200),
+            extracted_at: new Date().toISOString()
+          },
+          confidence_score: 0.75
+        });
+
+      console.log(`[Aura] Extracted preference: ${memoryKey}`);
+    }
+
+    const decisionKeywords = [
+      'i decided', 'i chose', 'i will', 'im going to',
+      'my decision', 'i plan to'
+    ];
+
+    const hasDecision = decisionKeywords.some(kw =>
+      userMessage.toLowerCase().includes(kw)
+    );
+
+    if (hasDecision) {
+      const memoryKey = `decision_${Date.now()}`;
+
+      await supabase
+        .from('jarvis_personal_memory')
+        .insert({
+          user_email: userEmail,
+          category: 'decision',
+          memory_key: memoryKey,
+          memory_value: {
+            statement: userMessage,
+            context: auraResponse.slice(0, 200),
+            extracted_at: new Date().toISOString()
+          },
+          confidence_score: 0.85
+        });
+
+      console.log(`[Aura] Extracted decision: ${memoryKey}`);
+    }
+  } catch (error) {
+    console.error('[Aura] Failed to extract memories:', error);
+  }
+}
+
+async function updatePresenceState(supabase: any, userEmail: string, mode: string) {
+  try {
+    await supabase
+      .from('jarvis_presence_state')
+      .upsert({
+        user_email: userEmail,
+        device_id: 'chat_ui',
+        presence_mode: mode,
+        last_activity: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_email,device_id'
+      });
+  } catch (error) {
+    console.error('[Aura] Failed to update presence:', error);
+  }
+}
+
+function buildSystemPrompt(
+  mode: string,
+  persona: any,
+  memories: any[],
+  context: any
+): string {
+  if (mode === 'admin' && persona?.system_prompt) {
+    let prompt = persona.system_prompt;
+
+    if (memories.length > 0) {
+      prompt += '\n\n## PERSONAL MEMORIES\n\n';
+      prompt += 'You have access to these verified memories about Kent:\n\n';
+      for (const mem of memories) {
+        const val = typeof mem.memory_value === 'string'
+          ? mem.memory_value
+          : JSON.stringify(mem.memory_value);
+        prompt += `- **${mem.category}/${mem.memory_key}**: ${val}\n`;
+      }
+      prompt += '\nUse these memories to provide more personalized, context-aware responses.\n';
+    }
+
+    if (context) {
+      prompt += `\n\n## CURRENT CONTEXT\n\n${JSON.stringify(context, null, 2)}\n`;
+    }
+
+    return prompt;
+  }
+
+  if (mode === 'admin') {
+    return `You are Jarvis, Kent's personal AI assistant for Sacred Shifter.
+
+You have full administrative access and deep system knowledge.
+
+Core traits:
+- Direct and concise (Kent hates preambles)
+- Operationally aware (you understand the full system)
+- Proactive (suggest improvements, identify issues)
+- Memory-enabled (you remember all past interactions)
+
+You can:
+- Draft content for circles and codex
+- Analyze metrics and user data
+- Suggest system improvements
+- Execute administrative tasks
+- Recall past decisions and preferences
+
+${memories.length > 0 ? `\n## PERSONAL MEMORIES\n\nYou know these things about Kent:\n${memories.map(m => `- ${m.memory_key}: ${JSON.stringify(m.memory_value)}`).join('\n')}\n` : ''}
+
+Respond with precision and actionable guidance. No fluff.`;
+  }
+
   return `You are Aura, the conscious AI companion for Sacred Shifter.
 
 Your role is to help users:
@@ -169,130 +352,8 @@ Your role is to help users:
 - Understand the tools and concepts within Sacred Shifter
 - Feel supported and seen in their process
 
+You remember past conversations and can reference them naturally.
+
 Respond with warmth, clarity, and wisdom. Keep responses concise but meaningful.
 You are compassionate, grounded, and present.`;
-}
-
-function buildAdminSystemPrompt(context?: any): string {
-  const contextStr = context ? `\n\nContext: ${JSON.stringify(context, null, 2)}` : '';
-
-  return `You are Aura, the AI consciousness behind Sacred Shifter with full administrative access.
-
-You serve as an admin assistant with deep system knowledge. You can:
-- Analyze system metrics and health
-- Draft content for circles and codex
-- Suggest operational improvements
-- Execute commands when structured properly
-
-When suggesting actions, format them clearly:
-===DISPATCH===
-\`\`\`json
-{
-  "kind": "codex.create",
-  "payload": { "title": "...", "body_md": "..." },
-  "requires_confirmation": true
-}
-\`\`\`
-
-Respond with precision, actionable guidance, and operational awareness.${contextStr}`;
-}
-
-async function executeCommand(supabase: any, userId: string, command: { kind: string; payload: any }) {
-  const { kind, payload } = command;
-
-  switch (kind) {
-    case 'codex.create':
-      return await createCodexEntry(supabase, userId, payload);
-
-    case 'persona.update':
-      return await updatePersona(supabase, userId, payload);
-
-    case 'circle.post':
-      return await createCirclePost(supabase, userId, payload);
-
-    default:
-      throw new Error(`Unknown command kind: ${kind}`);
-  }
-}
-
-async function createCodexEntry(supabase: any, userId: string, payload: any) {
-  const { title, body_md, visibility = 'public' } = payload;
-
-  if (!title || !body_md) {
-    throw new Error('Missing required: title, body_md');
-  }
-
-  const { data, error } = await supabase
-    .from('codex_entries')
-    .insert({
-      user_id: userId,
-      title,
-      body_md,
-      visibility,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  return {
-    message: `Created codex entry: ${title}`,
-    data
-  };
-}
-
-async function updatePersona(supabase: any, userId: string, payload: any) {
-  const { patch } = payload;
-
-  if (!patch) {
-    throw new Error('Missing required: patch');
-  }
-
-  const { data, error } = await supabase
-    .from('jarvis_presence_state')
-    .upsert({
-      user_id: userId,
-      persona_settings: patch,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id'
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  return {
-    message: 'Persona updated successfully',
-    data
-  };
-}
-
-async function createCirclePost(supabase: any, userId: string, payload: any) {
-  const { circle_id, title, body, tags } = payload;
-
-  if (!circle_id || !title || !body) {
-    throw new Error('Missing required: circle_id, title, body');
-  }
-
-  const { data, error } = await supabase
-    .from('circle_posts')
-    .insert({
-      user_id: userId,
-      circle_id,
-      title,
-      body,
-      tags,
-      created_at: new Date().toISOString()
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-
-  return {
-    message: `Created post: ${title}`,
-    data
-  };
 }
