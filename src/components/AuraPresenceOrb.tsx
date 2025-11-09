@@ -259,19 +259,19 @@ export function AuraPresenceOrb({
           </div>
 
           {/* Health Ring */}
-          <svg className="absolute inset-0 w-full h-full -rotate-90">
+          <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
             <circle
-              cx="50%"
-              cy="50%"
-              r="45%"
+              cx="50"
+              cy="50"
+              r="45"
               fill="none"
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="2"
             />
             <circle
-              cx="50%"
-              cy="50%"
-              r="45%"
+              cx="50"
+              cy="50"
+              r="45"
               fill="none"
               stroke={state.systemHealth >= 0.8 ? '#10b981' : state.systemHealth >= 0.5 ? '#f59e0b' : '#ef4444'}
               strokeWidth="2"
