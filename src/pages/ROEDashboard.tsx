@@ -317,7 +317,7 @@ export function ROEDashboard({ userId }: ROEDashboardProps) {
               <TrendingUp className="w-5 h-5 text-blue-400" />
               Resonance Trajectory
             </h2>
-            <RITrajectoryChart userId={userId} days={timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : timeRange === '90d' ? 90 : 365} />
+            <RITrajectoryChart userId={userId} timeRange={timeRange === '90d' ? 'all' : timeRange} />
           </div>
 
           {/* Entropy Heatmap */}

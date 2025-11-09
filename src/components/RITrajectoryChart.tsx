@@ -68,7 +68,7 @@ export function RITrajectoryChart({
 
       const cutoffDate = getCutoffDate(timeRange);
 
-      // Fetch reality branches with RI values
+      // Fetch reality branches with RI values (only existing columns)
       const { data: branches, error: branchError } = await supabase
         .from('reality_branches')
         .select('created_at, resonance_index')
