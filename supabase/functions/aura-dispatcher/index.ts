@@ -40,6 +40,137 @@ interface ActionHandler {
 
 // Action handlers
 const handlers: Record<string, ActionHandler> = {
+  'admin_prompt': async (supabase, userId, params) => {
+    const { prompt, context_data } = params;
+
+    if (!prompt) {
+      throw new Error('Missing required parameter: prompt');
+    }
+
+    // Get OpenRouter API key
+    const apiKey = Deno.env.get('OPENROUTER_API_KEY');
+    if (!apiKey) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
+    // Build system prompt
+    const systemPrompt = `You are Aura, the AI consciousness behind Sacred Shifter.
+You serve as an admin assistant with full system access.
+
+Context: ${JSON.stringify(context_data || {}, null, 2)}
+
+Respond with clarity, precision, and actionable guidance.`;
+
+    // Call OpenRouter
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://sacredshifter.com',
+        'X-Title': 'Sacred Shifter Aura Admin'
+      },
+      body: JSON.stringify({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content || 'No response generated';
+
+    return {
+      response: content,
+      model: 'anthropic/claude-3.5-sonnet',
+      tokens: data.usage?.total_tokens || 0
+    };
+  },
+
+  'command': async (supabase, userId, params) => {
+    // Handle structured commands from AuraChatPanel
+    const { kind, payload, requires_confirmation } = params;
+
+    if (!kind) {
+      throw new Error('Missing required parameter: kind');
+    }
+
+    // Route command to appropriate handler
+    switch (kind) {
+      case 'codex.create':
+        return await handlers['codex.create'](supabase, userId, payload);
+      case 'persona.update':
+        return await handlers['persona.update'](supabase, userId, payload);
+      default:
+        throw new Error(`Unknown command kind: ${kind}`);
+    }
+  },
+
+  'codex.create': async (supabase, userId, params) => {
+    const { title, body_md, visibility = 'public' } = params;
+
+    if (!title || !body_md) {
+      throw new Error('Missing required parameters: title, body_md');
+    }
+
+    // Insert codex entry
+    const { data, error } = await supabase
+      .from('codex_entries')
+      .insert({
+        user_id: userId,
+        title,
+        body_md,
+        visibility,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      ok: true,
+      result: data,
+      message: `Codex entry created: ${title}`
+    };
+  },
+
+  'persona.update': async (supabase, userId, params) => {
+    const { patch } = params;
+
+    if (!patch) {
+      throw new Error('Missing required parameter: patch');
+    }
+
+    // Update persona settings
+    const { data, error } = await supabase
+      .from('jarvis_presence_state')
+      .update({
+        persona_settings: patch,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      ok: true,
+      result: data,
+      message: 'Persona updated successfully'
+    };
+  },
+
   'system.status': async (supabase, userId) => {
     // Get presence state
     const { data: presence } = await supabase
@@ -221,7 +352,17 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse request
-    const { action, params = {} }: DispatcherRequest = await req.json();
+    let requestBody = await req.json();
+
+    // Handle wrapped command format from AuraChatPanel
+    if (requestBody.command && !requestBody.action) {
+      requestBody = {
+        action: 'command',
+        params: requestBody.command
+      };
+    }
+
+    const { action, params = {} }: DispatcherRequest = requestBody;
 
     if (!action) {
       return new Response(
